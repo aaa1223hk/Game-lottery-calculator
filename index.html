@@ -556,6 +556,11 @@
         </div>
 
 
+        <div class="note">
+            同名獎品會在這裡自動合併；機率、期望獲得數量與期望價值會分別加總。
+            若同名獎品的「每次數量」設定不同，該欄會顯示「多種」。
+        </div>
+
         <div class="table-wrapper result-table">
             <table>
                 <thead>
@@ -928,6 +933,12 @@
 
 
         // 獎品計算
+        //
+        // 同名獎品會在「計算結果」中自動合併：
+        // - 出現機率：相加
+        // - 期望獲得數量：相加
+        // - 期望價值：相加
+        // 輸入區仍保留原本每一筆設定，方便設定不同數量／機率／價值。
 
         let totalItems = 0;
 
@@ -942,6 +953,10 @@
             document.getElementById("resultCostTable");
 
         resultCostTable.innerHTML = "";
+
+        // 用名稱作為合併鍵；去除名稱前後空白，避免「 星之珠寶 」與「星之珠寶」
+        // 被視為兩個不同獎品。
+        const mergedPrizes = new Map();
 
         if (costs.length === 0) {
             resultCostTable.innerHTML = `
@@ -968,8 +983,11 @@
 
         prizes.forEach(prize => {
 
+            const probabilityPercent =
+                Number(prize.probability) || 0;
+
             const probability =
-                (Number(prize.probability) || 0) / 100;
+                probabilityPercent / 100;
 
             const quantity =
                 Number(prize.quantity) || 0;
@@ -993,44 +1011,75 @@
             const expectedValue =
                 expectedQuantity * value;
 
+            const displayName =
+                String(prize.name || "未命名").trim() || "未命名";
+
+            // 同名獎品自動合併。
+            // expectedQuantity / expectedValue 不能直接用「合併後的機率 ×
+            // 任一筆數量」計算，所以每一筆先各自計算，再累加。
+            if (!mergedPrizes.has(displayName)) {
+                mergedPrizes.set(displayName, {
+                    probabilityPercent: 0,
+                    expectedQuantity: 0,
+                    expectedValue: 0,
+                    quantities: []
+                });
+            }
+
+            const merged = mergedPrizes.get(displayName);
+
+            merged.probabilityPercent += probabilityPercent;
+            merged.expectedQuantity += expectedQuantity;
+            merged.expectedValue += expectedValue;
+
+            if (!merged.quantities.includes(quantity)) {
+                merged.quantities.push(quantity);
+            }
 
             totalItems += expectedQuantity;
-
             totalValue += expectedValue;
 
+        });
+
+        // 輸出合併後的結果
+        mergedPrizes.forEach((merged, displayName) => {
 
             const tr =
                 document.createElement("tr");
 
+            // 同名獎品如果每筆「每次數量」都相同，就直接顯示；
+            // 如果不同，顯示「多種」避免誤導。
+            const quantityText =
+                merged.quantities.length === 1
+                    ? formatNumber(merged.quantities[0])
+                    : "多種";
 
             tr.innerHTML = `
 
                 <td>
-                    ${escapeHtml(prize.name || "未命名")}
+                    ${escapeHtml(displayName)}
                 </td>
 
                 <td>
-                    ${formatNumber(prize.probability)}%
+                    ${formatNumber(merged.probabilityPercent)}%
                 </td>
 
                 <td>
-                    ${formatNumber(quantity)}
+                    ${quantityText}
                 </td>
 
                 <td>
                     <strong>
-                        ${formatNumber(expectedQuantity)}
+                        ${formatNumber(merged.expectedQuantity)}
                     </strong>
                 </td>
 
                 <td>
-                    ${formatNumber(expectedValue)}
+                    ${formatNumber(merged.expectedValue)}
                 </td>
             `;
 
-
             resultTable.appendChild(tr);
-
         });
 
 
