@@ -489,6 +489,27 @@
             <button class="btn-secondary" onclick="addPrize()">
                 ＋ 新增獎品
             </button>
+
+            <button class="btn-primary" onclick="document.getElementById('prizeFileInput').click()">
+                📥 載入表格檔案
+            </button>
+
+            <button class="btn-secondary" onclick="pastePrizeTable()">
+                📋 貼上表格文字
+            </button>
+
+            <input
+                id="prizeFileInput"
+                type="file"
+                accept=".txt,.csv,text/plain,text/csv"
+                style="display:none"
+                onchange="importPrizeFile(this)"
+            >
+        </div>
+
+        <div class="note">
+            可直接載入你這種「道具名稱／數量／獲得機率」的 TXT 或 CSV 表格。
+            匯入後會取代目前的獎品設定；之後計算結果仍會自動合併同名獎品。
         </div>
 
         <div id="probabilityInfo" class="probability-info">
@@ -1311,6 +1332,216 @@
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
+    }
+
+
+    // =========================
+    // 匯入獎品表格
+    // =========================
+
+    function importPrizeFile(input) {
+
+        const file = input.files && input.files[0];
+
+        if (!file) {
+            return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onload = function(event) {
+
+            const text = String(event.target.result || "");
+
+            importPrizeTableText(text, file.name);
+
+            // 允許再次選同一個檔案時也能觸發 change。
+            input.value = "";
+        };
+
+        reader.onerror = function() {
+            alert("讀取檔案失敗，請確認檔案格式。");
+            input.value = "";
+        };
+
+        reader.readAsText(file, "UTF-8");
+    }
+
+
+    function pastePrizeTable() {
+
+        const text = prompt(
+            "請把表格內容貼在下面。\n\n" +
+            "支援：\n" +
+            "1. 直接從網頁／Excel 複製的三欄表格\n" +
+            "2. 「道具名稱、數量、獲得機率」各自換行的文字格式\n\n" +
+            "例如：\n" +
+            "[活動] 失去光芒的摯友星\\t3\\t17.30%"
+        );
+
+        if (text === null) {
+            return;
+        }
+
+        importPrizeTableText(text, "貼上的表格");
+    }
+
+
+    function importPrizeTableText(text, sourceName = "表格") {
+
+        const parsed = parsePrizeTable(text);
+
+        if (parsed.length === 0) {
+            alert(
+                "找不到可辨識的獎品資料。\n\n" +
+                "請確認格式包含：獎品名稱、數量、獲得機率，例如：\n" +
+                "[活動] 失去光芒的摯友星    3    17.30%"
+            );
+            return;
+        }
+
+        const invalid = parsed.filter(prize =>
+            !prize.name ||
+            !Number.isFinite(prize.quantity) ||
+            !Number.isFinite(prize.probability)
+        );
+
+        if (invalid.length > 0) {
+            alert("表格中有無法辨識的資料，請檢查後再匯入。");
+            return;
+        }
+
+        const totalProbability = parsed.reduce(
+            (sum, prize) => sum + prize.probability,
+            0
+        );
+
+        const message =
+            `從「${sourceName}」讀到 ${parsed.length} 筆獎品。\n` +
+            `機率合計：${formatNumber(totalProbability)}%\n\n` +
+            "匯入後會取代目前的獎品設定，確定要匯入嗎？";
+
+        if (!confirm(message)) {
+            return;
+        }
+
+        prizes = parsed;
+
+        renderPrizes();
+        calculate();
+    }
+
+
+    function parsePrizeTable(text) {
+
+        const cleaned = String(text || "")
+            .replace(/\r/g, "")
+            .replace(/\uFEFF/g, "")
+            .trim();
+
+        if (!cleaned) {
+            return [];
+        }
+
+        // 格式 A：從網頁／Excel 複製的三欄資料。
+        // 例如：「名稱\t數量\t機率」
+        const lines = cleaned
+            .split("\n")
+            .map(line => line.trim())
+            .filter(Boolean);
+
+        const result = [];
+
+        for (const line of lines) {
+
+            // 支援 Tab、連續空白，以及常見全形空白。
+            const parts = line
+                .split(/\t+|\s{2,}|　+/)
+                .map(part => part.trim())
+                .filter(Boolean);
+
+            if (parts.length >= 3) {
+
+                const probabilityText = parts[parts.length - 1]
+                    .replace(/%/g, "")
+                    .replace(/,/g, "");
+
+                const quantityText = parts[parts.length - 2]
+                    .replace(/,/g, "");
+
+                const probability = Number(probabilityText);
+                const quantity = Number(quantityText);
+
+                if (
+                    parts[0] &&
+                    Number.isFinite(quantity) &&
+                    Number.isFinite(probability)
+                ) {
+                    result.push({
+                        name: parts.slice(0, -2).join(" "),
+                        quantity: quantity,
+                        probability: probability,
+                        value: 0
+                    });
+                }
+            }
+        }
+
+        if (result.length > 0) {
+            return result;
+        }
+
+        // 格式 B：像你提供的 TXT：
+        // 名稱
+        // 數量
+        // 機率
+        //
+        // 前面會有一次「道具名稱／數量／獲得機率」標題，
+        // 所以先移除標題，再每三行解析一筆。
+        const rows = lines.filter(line => {
+            const normalized = line.replace(/\s/g, "");
+
+            return ![
+                "道具名稱",
+                "名稱",
+                "數量",
+                "獲得機率",
+                "獲取機率",
+                "獲得概率"
+            ].includes(normalized);
+        });
+
+        for (let i = 0; i + 2 < rows.length; i += 3) {
+
+            const name = rows[i].trim();
+
+            const quantityText = rows[i + 1]
+                .replace(/,/g, "")
+                .trim();
+
+            const probabilityText = rows[i + 2]
+                .replace(/%/g, "")
+                .replace(/,/g, "")
+                .trim();
+
+            const quantity = Number(quantityText);
+            const probability = Number(probabilityText);
+
+            if (
+                name &&
+                Number.isFinite(quantity) &&
+                Number.isFinite(probability)
+            ) {
+                result.push({
+                    name: name,
+                    quantity: quantity,
+                    probability: probability,
+                    value: 0
+                });
+            }
+        }
+
+        return result;
     }
 
 
