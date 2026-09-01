@@ -339,6 +339,31 @@
             line-height: 1.65;
         }
 
+
+        /* Google AdSense 廣告區塊 */
+        .ad-container {
+            max-width: 1100px;
+            margin: 26px auto 0;
+            padding: 18px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: rgba(14, 19, 30, 0.72);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+            overflow: hidden;
+        }
+
+        .ad-label {
+            text-align: center;
+            color: #64748b;
+            font-size: 11px;
+            margin-bottom: 8px;
+            letter-spacing: 0.05em;
+        }
+
+        .ad-container .adsbygoogle {
+            min-height: 90px;
+        }
+
         @media (max-width: 700px) {
             body {
                 padding: 20px 12px 40px;
@@ -369,6 +394,8 @@
         }
 
     </style>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5098041229443474"
+        crossorigin="anonymous"></script>
 </head>
 
 <body>
@@ -617,6 +644,18 @@
     </div>
 
 </div>
+
+
+    <!-- Google AdSense 廣告 -->
+    <div class="ad-container">
+        <div class="ad-label">廣告</div>
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-5098041229443474"
+             data-ad-slot="3999718042"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+    </div>
 
 <footer style="max-width:1100px;margin:26px auto 0;text-align:center;color:#64748b;font-size:13px;">
     @歐小龍 2026/9/1 更新
@@ -1558,18 +1597,12 @@
 </script>
 
 
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5098041229443474"
-     crossorigin="anonymous"></script>
-<!-- 廣告1 -->
-<ins class="adsbygoogle"
-     style="display:block"
-     data-ad-client="ca-pub-5098041229443474"
-     data-ad-slot="3999718042"
-     data-ad-format="auto"
-     data-full-width-responsive="true"></ins>
-<script>
-     (adsbygoogle = window.adsbygoogle || []).push({});
-</script>
+
+
+    <script>
+        (adsbygoogle = window.adsbygoogle || []).push({});
+    </script>
+
 </body>
 </html>
 
